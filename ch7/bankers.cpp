@@ -12,9 +12,11 @@ HANDLE  MUTEXLOCK = NULL;
 #define NUMBER_OF_CUSTOMERS 5
 #define NUMBER_OF_RESOURCES 3
 
+int count = 0;
 int first_num = 0;
 int second_num = 0;
 int thrid_num = 0;
+
 int available[NUMBER_OF_RESOURCES];
 int maximum[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 int allocation[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
@@ -25,8 +27,103 @@ int my_rand(int min, int max) {
 	if (rand() == RAND_MAX)
 		return max - 1;
 	else
-		return min + (int)((max - min) * rand() * 1.0 / RAND_MAX);
+		return min + (int)(((double)max - (double)min) * rand() * 1.0 / RAND_MAX);
 };
+
+
+void output() {
+	int i, j;
+	printf("Available:\n");
+	for (i = 0; i < NUMBER_OF_RESOURCES; i++) {
+		printf("%d ", available[i]);
+	}
+	printf("Maximum:\n");
+	for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+		for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
+			printf("%d ", maximum[i][j]);
+		}
+		printf("\n");
+	}
+	printf("Allocation:\n");
+	for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+		for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
+			printf("%d ", allocation[i][j]);
+		}
+		printf("\n");
+	}
+	printf("Need:\n");
+	for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+		for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
+			printf("%d ", need[i][j]);
+		}
+		printf("\n");
+	}
+}
+
+
+void init() {
+	available[0] = first_num;
+	available[1] = second_num;
+	available[2] = thrid_num;
+	int i, j;
+	MUTEXLOCK = CreateMutex(NULL, FALSE, NULL);//create the mutexlock
+	for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+		for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
+			maximum[i][j] = my_rand(0, available[j] + 1);
+			allocation[i][j] = 0;
+			need[i][j] = maximum[i][j] - allocation[i][j];
+		}
+	}
+	for (i = 0; i < NUMBER_OF_RESOURCES; i++) {
+		int sum = 0;
+		for (j = 0; j < NUMBER_OF_CUSTOMERS; j++) {
+			sum += allocation[j][i];
+
+		}
+		available[i] -= sum;
+	}
+	output();
+}
+
+int safe() {
+	int work[NUMBER_OF_RESOURCES];
+	int i = 0;
+	for (i = 0; i < NUMBER_OF_RESOURCES; i++) {
+		work[i] = available[i];
+	}
+	//0 for false, 1 for true
+	int finish[NUMBER_OF_CUSTOMERS];
+	for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+		finish[i] = 0;
+	}
+	while (1) {
+		int flag = 1;
+		for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+			if (finish[i] == 0 && need[i][0] <= work[0] && need[i][1] <= work[1] && need[i][2] <= work[2]) {
+				work[0] += need[i][0];
+				work[1] += need[i][1];
+				work[2] += need[i][2];
+				finish[i] = 1;
+				flag = 0;
+			}
+		}
+		if (flag == 1) {
+			break;
+		}
+	}
+	int flag = 1;
+	for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+		if (finish[i] == 0) {
+			flag = 0;
+		}
+	}
+	if (flag == 1) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
 
 DWORD WINAPI customer(LPVOID lpParameter) {
 	int num = *(int*)lpParameter;
@@ -57,10 +154,10 @@ DWORD WINAPI customer(LPVOID lpParameter) {
 				available[0] += allocation[num][0];
 				available[1] += allocation[num][1];
 				available[2] += allocation[num][2];
-				mcount++;
-				if (mcount == NUMBER_OF_CUSTOMERS) {
+				count++;
+				if (count == NUMBER_OF_CUSTOMERS) {
 					printf(" complete\n");
-					print();
+					output();
 					exit(0);
 				}
 				//return;
@@ -90,8 +187,9 @@ DWORD WINAPI customer(LPVOID lpParameter) {
 		ReleaseMutex(MUTEXLOCK);//release the mutexlock
 		Sleep(1000);
 	}
-
 }
+
+
 
 int main(int argc, char* argv[]) {
 	if (argc != 4) {
@@ -105,7 +203,7 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr, "The param should not be negative!");
 		return -1;
 	}
-	srand(time(NULL));
+	srand((unsigned)time(NULL));
 	init();
 	if (safe() == 0) {
 		printf_s("Unsafe at first\n");
@@ -116,7 +214,6 @@ int main(int argc, char* argv[]) {
 	int num[NUMBER_OF_CUSTOMERS] = { 0 };
 	HANDLE* ThreadHandle;
 	ThreadHandle = (HANDLE*)malloc(NUMBER_OF_CUSTOMERS * sizeof(HANDLE));
-	MUTEXLOCK = CreateMutex(NULL, FALSE, NULL);//create the mutexlock
 	
 	for (i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
 		num[i] = i;

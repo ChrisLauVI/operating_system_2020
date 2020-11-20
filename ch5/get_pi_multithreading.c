@@ -6,6 +6,7 @@
 
 #define RANGE 2333333 //attempt limit
 
+HANDLE  MUTEXLOCK = NULL;
 double sum; //number of spots in the circle
 
 //get the random number within a certain range
@@ -17,6 +18,7 @@ double my_rand(double min, double max) {
 DWORD WINAPI get_sum(LPVOID lpParam) {
 	int cnt = 0;
 
+	WaitForSingleObject(MUTEXLOCK, INFINITE);//wait for teh mutexlock
 	srand(time(NULL)); //remake seed of random number based on current time 
 	for (int i = 0; i < RANGE; i++) {
 		double x = my_rand(-1, 1);
@@ -24,13 +26,13 @@ DWORD WINAPI get_sum(LPVOID lpParam) {
 		if (x * x + y * y <= 1)
 			cnt++;
 	}  //get the number of spots in the circle
-	sum = cnt;
+	sum += cnt;
+	ReleaseMutex(MUTEXLOCK);//release the mutexlock
 	return 0;
 }
 
 int main(int argc, char* argv[]) {
-	DWORD ThreadId;
-	HANDLE ThreadHandle;
+
 	int i = 0;
 	int param = 0;
 
@@ -45,16 +47,20 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	//create the thread
+	HANDLE* ThreadHandle;
+	ThreadHandle = (HANDLE*)malloc(param * sizeof(HANDLE));
+	MUTEXLOCK = CreateMutex(NULL, FALSE, NULL);//create the mutexlock
+
+	//create the threads
 	for (i = 0; i < param; i++) {
-		if (i)
-			printf("\n");
-		ThreadHandle = CreateThread(NULL, 0, get_sum, NULL, 0, &ThreadId);
-		if (ThreadHandle != NULL) {
-			WaitForSingleObject(ThreadHandle, INFINITE);
-			CloseHandle(ThreadHandle);
-			printf_s("Pi = %lf", sum * 4.0 / RANGE); // calculate and output the value of Pi
+		ThreadHandle[i] = CreateThread(NULL, 0, get_sum, NULL, 0, NULL);
+		if (ThreadHandle[i] != NULL) {
+			WaitForSingleObject(ThreadHandle[i], INFINITE);
+			printf_s("Create thread%d successfully!\n", i);
+			CloseHandle(ThreadHandle[i]);
 		}
-		Sleep(1000); // because precision of time() is 1 second
+		Sleep(1000);// because precision of time() is 1 second
 	}
+	CloseHandle(MUTEXLOCK);//close the mutexlock
+	printf_s("Pi = %lf", sum * 4.0 / RANGE / param); // calculate and output the value of Pi
 }

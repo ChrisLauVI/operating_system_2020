@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="get_pi.cpp">
+    <ClCompile Include="get_pi_multithreading.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

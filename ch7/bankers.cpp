@@ -8,7 +8,6 @@
 #include <math.h>
 #include <conio.h>
 
-
 HANDLE  MUTEXLOCK = NULL;
 
 #define NUMBER_OF_CUSTOMERS 5
@@ -25,6 +24,7 @@ int maximum[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 int allocation[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 int need[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 
+//Take the current time as the seed production random number.
 int my_rand(int min, int max) {
 	max ++;
 	if (rand() == RAND_MAX)
@@ -33,6 +33,7 @@ int my_rand(int min, int max) {
 		return min + (int)(((double)max - (double)min) * rand() * 1.0 / RAND_MAX);
 };
 
+//Outputs the matrixs of all parameters.
 void output() {
 	int i = 0, j = 0;
 	printf("Available:\nrec1  rec2  rec3\n");
@@ -66,6 +67,7 @@ void output() {
 	}
 }
 
+//Initialize the parameter matrix.
 void init() {
 	int i = 0, j = 0;
 	available[0] = first_num;
@@ -90,7 +92,7 @@ void init() {
 	output();
 }
 
-//0 for false, 1 for true
+//Security Testing (0 for false, 1 for true)
 int safe() {
 	int i = 0;
 	int flag = 1;
@@ -129,6 +131,7 @@ DWORD WINAPI customer(LPVOID lpParameter) {
 		int i = 0;
 		int request[NUMBER_OF_RESOURCES];
 		WaitForSingleObject(MUTEXLOCK, INFINITE);//wait for teh mutexlock
+		//randomly generated requests
 		for (i = 0; i < NUMBER_OF_RESOURCES; i++) {
 			request[i] = my_rand(0, need[num][i]);
 		}
@@ -137,6 +140,7 @@ DWORD WINAPI customer(LPVOID lpParameter) {
 			continue;
 		}
 		printf("\nCustomer%d request:%d %d %d", num, request[0], request[1], request[2]);
+		//test distribution
 		if (request[0] <= available[0] && request[1] <= available[1] && request[2] <= available[2]) {
 			available[0] -= request[0];
 			available[1] -= request[1];
@@ -147,6 +151,7 @@ DWORD WINAPI customer(LPVOID lpParameter) {
 			need[num][0] -= request[0];
 			need[num][1] -= request[1];
 			need[num][2] -= request[2];
+			//if unsafe, rollback distribution
 			if (safe() == 0) {
 				available[0] += request[0];
 				available[1] += request[1];
@@ -157,9 +162,10 @@ DWORD WINAPI customer(LPVOID lpParameter) {
 				need[num][0] += request[0];
 				need[num][1] += request[1];
 				need[num][2] += request[2];
-				printf(" \nUnsafe1! Request denied!\n");
+				printf(" \nUnsafe! Request denied!\n");
 
 			}
+			//if safe, do distribution
 			else {
 				printf(" \nSafe! Request accepted!\n");
 				printf("Available: %d %d %d ", available[0], available[1], available[2]);
@@ -167,8 +173,9 @@ DWORD WINAPI customer(LPVOID lpParameter) {
 			}
 		}
 		else {
-			printf("\nUnsafe2! Request denied!\n");
+			printf("\nOverflowing request! Request denied!\n");
 		}
+		//when the allocation reaches maximum, the thread completes and releases all resources of the thread.
 		if (need[num][0] == 0 && need[num][1] == 0 && need[num][2] == 0) {
 			available[0] += allocation[num][0];
 			available[1] += allocation[num][1];
@@ -189,7 +196,7 @@ int main(int argc, char* argv[]) {
 	int i = 0;
 	int num[NUMBER_OF_CUSTOMERS] = { 0 };
 	HANDLE* ThreadHandle;
-	ThreadHandle = (HANDLE*)malloc(NUMBER_OF_CUSTOMERS * sizeof(HANDLE));
+	ThreadHandle = (HANDLE*)malloc(NUMBER_OF_CUSTOMERS * sizeof(HANDLE));//dynamic allocation of handle memory
 
 	if (argc != 4) {
 		fprintf(stderr, "Please enter the number of the 3 resources in the form of three parameters");

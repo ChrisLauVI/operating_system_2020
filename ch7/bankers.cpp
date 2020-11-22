@@ -8,7 +8,6 @@
 #include <math.h>
 #include <conio.h>
 
-
 HANDLE  MUTEXLOCK = NULL;
 
 #define NUMBER_OF_CUSTOMERS 5
